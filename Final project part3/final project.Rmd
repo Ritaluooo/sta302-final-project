@@ -1,0 +1,523 @@
+---
+title: "Factors influence health expenditure"
+author: "Yihang Luo"
+date: December 19, 2022
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, include = FALSE, echo = FALSE)
+library(tidyverse)
+library(car)
+library(ggplot2)
+library(gridExtra)
+library(gt)
+```
+
+
+
+# Introduction
+
+Health expenditure has always been a large part of household expenses. With the advance of technology in recent years, families have been required to spend more and more on health. Beside the basic health insurance covered by part of the salary and the expenses given to the government for medical care, additional costs may be incurred to pay clinicians or for unexpected illnesses. As a student from a middle-class background with high personal health conscious, I am more than aware of how the high cost of a serious illness or accident can tear a family with a normal income apart. Also, the article Household catastrophic health expenditure: a multicountry analysis[1] discovered that the proportion of households facing catastrophic payments from out-of-pocket health expenses varied widely between countries, which is why the topic is a great concern to lots of families around the world. Thus, studying the factors that influence spending on health can improve the awareness of people related to health, may to some extent help prevent the excessive health expenditure by families who are not financially well off. 
+
+The related journal, the determinants and effects of health expenditure in developed countries[2], re-examined the results of previous work using a larger sample of 560 pooled time-series and cross-section observations. They confirmed the importance of GDP as a determinant of health spending and the importance of some non-income variables such as demographic structure, which let me reassure the inclusion of GDP variables and the try to add some demographic structure factors such as adult mortality, unemployment rate, number of passed abortion laws and education level. Besides, we add life expectancy, alcohol level, BMI as variables related to physical factors. We will use all the variables to perform a linear regression model that predict people's spending on health. 
+
+\newpage
+
+# Methods
+
+Our study is used to the best linear regression model for predicting spending on health, including predictors like GDO, life expectancy. adult mortality, etc. All the variables come from Kaggle data for studying life expectancy among 16 years from 2000 to 2015 and unemployment rate in 2007, deriving from WHO data, UNdata and World Bank data[3][4][5][6], including 134 countries as observations. The predictors come from both personal health conditions and demographic structure among varies countries so people and government can focus more on these factors in order to decrease the expenditure on health. 
+
+At the beginning, we split the data into two parts: a training dataset containing 70% collected data and a testing dataset containing the rest 30% collected data. We set the seed to 1006871100 to ensure that the training and testing data are always consistent. We then use the training data set to build a full model consisting of all possible predictors: Condition 1 is satisfied if there is a functional pattern in the scatterplot between spending on health and predicted health spending. Condition 2 is satisfied if there is a linear or random pattern in all the scatterplots between numerical predictors. When the models satisfy both conditions, we create residual plots of the fitted response variables, numerical predictors, and normal QQ plots to check the four assumptions.The linearity assumption holds if the residual plots has a random pattern. The independence assumption holds if there is no points significantly aggregated in the residual plot.The homoscedasticity assumption holds if the points in the residual plot are randomly distributed. The normality assumption holds if the normal QQ plot shows that the residuals do not deviate significantly from the standard line. If neither model violates the assumptions, we will proceed with model selection. We will apply the Boxcox transformation to deal with these violations if the models have some violations of the model assumptions. After the transformation, we will compare the two original full models with the transformed model. We will choose the model that violates the smallest amount of assumptions to continue as the full model if only few violations in the converted model are made. 
+
+By selecting a model from the previous steps, we could proceed with model selection. Multicollinearity is an important assumption to check the full model, through using Variance Inflation Factor(VIF) for each predictor. When there are predictors with VIF greater than 5, we will keep eliminating the predictor with the largest VIF each time we build a new model, and then check for the other predictors until all predictors have VIF less than 5. Then, we will do manual selection by looking at the summary of the full model to see the significance of the coefficients. Subsequently, we do a partial F-test to check whether the reduced model was better than the full model. We would like to choose one of full model and reduce model as our final model. Then we used the test dataset to fit these preferred models. We compared examine the changes in coefficients, importance of predictors, model assumptions and adjusted R2, AIC, BIC, etc. between testing and training dataset. A model was validated if it looked very similar to its performance in the training dataset. We preferred the model with larger adjusted Rˆ2 and p-values and smaller AIC and BIC values. So we can select the final model based on above. After deciding on the preferred model, we will examine the leverage points, outlier points, and impact points. The impact points will be measured by all three truncation points, i.e., Cook distance, DFFITS, and DFBETAS. if there is no background reason, we will proceed with model validation and remove the problematic observations. Finally, we rechecked the conditions and assumptions of the reduced model through residual plots. 
+
+\newpage
+
+# Result
+
+```{r}
+data <- read.csv("final_project_dataset.csv")
+# Split data into training and testing datasets
+set.seed(1006871100)
+n <- nrow(data)
+training_part <- sample(1:n, size = round(0.7*n))
+train <- data[training_part, ]
+test <- data[-training_part, ]
+
+summary(train)
+summary(test)
+```
+* Training dataset
+
+Variable | Mean | Min | Max | Standard Deviation |
+----------------|------|------|------|----------|
+Response(percentage health expenditure)  | `r mean(train$percentage.expenditure)` | `r min(train$percentage.expenditure)` | `r max(train$percentage.expenditure)` | `r sd(train$percentage.expenditure)`
+Predictor 1(GDP)   | `r mean(train$GDP)`  | `r min(train$GDP)`| `r max(train$GDP)` | `r sd(train$GDP)`  
+Predictor 2(life expectancy)   | `r mean(train$Life.expectancy)` | `r min(train$Life.expectancy)` | `r max(train$Life.expectancy)` | `r sd(train$Life.expectancy)`
+Predictor 3(adult mortality)   | `r mean(train$Adult.Mortality)` | `r min(train$Adult.Mortality)` | `r max(train$Adult.Mortality)` | `r sd(train$Adult.Mortality)`
+Predictor 4(alcohol)   | `r mean(train$Alcohol)` | `r min(train$Alcohol)`  | `r max(train$Alcohol)` | `r sd(train$Alcohol)`
+Predictor 5(BMI)   | `r mean(train$BMI)` | `r min(train$BMI)` | `r max(train$BMI)` | `r sd(train$BMI)`
+Predictor 6(schooling)   | `r mean(train$Schooling)` | `r min(train$Schooling)` | `r max(train$Schooling)` | `r sd(train$Schooling)`
+Predictor 7(unemployment rate)   | `r mean(train$unemployment_rate)` | `r min(train$unemployment_rate)` | `r max(train$unemployment_rate)` | `r sd(train$unemployment_rate)` 
+
+* Testing dataset
+
+Variable | Mean | Min | Max | Standard Deviation |
+----------------|------|------|------|----------|
+Response(percentage health expenditure)  | `r mean(test$percentage.expenditure)` | `r min(test$percentage.expenditure)`| `r max(test$percentage.expenditure)` | `r sd(test$percentage.expenditure)`
+Predictor 1(GDP)   | `r mean(test$GDP)`  | `r min(test$GDP)`| `r max(test$GDP)` | `r sd(test$GDP)`
+Predictor 2(life expectancy)   | `r mean(test$Life.expectancy)` | `r min(test$Life.expectancy)` | `r max(test$Life.expectancy)` | `r sd(test$Life.expectancy)` 
+Predictor 3(adult mortality)   | `r mean(test$Adult.Mortality)` | `r min(test$Adult.Mortality)` | `r max(test$Adult.Mortality)` | `r sd(test$Adult.Mortality)`
+Predictor 4(alcohol)   | `r mean(test$Alcohol)` | `r min(test$Alcohol)`  | `r max(test$Alcohol)` | `r sd(test$Alcohol)`
+Predictor 5(BMI)   | `r mean(test$BMI)` | `r min(test$BMI)` | `r max(test$BMI)` | `r sd(test$BMI)`
+Predictor 6(schooling)   | `r mean(test$Schooling)` | `r min(test$Schooling)` | `r max(test$Schooling)` | `r sd(test$Schooling)`
+Predictor 7(unemployment rate)   | `r mean(test$unemployment_rate)` | `r min(test$unemployment_rate)` | `r max(test$unemployment_rate)`  | `r sd(test$unemployment_rate)` 
+
+\textbf{Table 1: All numerical variables summary for training and testing dataset}
+
+
+```{r, fig.height = 4, fig.width = 10, include= TRUE}
+a <- train %>%
+  ggplot(aes(x = number_pass_abortion_laws)) +
+  geom_bar(color="black", fill = "steelblue") + 
+  labs(title="number of abortion laws in train data") + 
+  coord_flip()
+
+b <- test %>%
+  ggplot(aes(x = number_pass_abortion_laws)) +
+  geom_bar(color="black", fill = "steelblue") + 
+  labs(title="number of abortion laws in test data") + 
+  coord_flip()
+
+grid.arrange(a,b, ncol=2)
+```
+
+\textbf{Figure 1: Boxplot of categorical variables in training and testing datadset}
+
+\newpage
+
+There are 1034 data in training dataset and 440 data in testing data. We can see that the distributions of numerical variables in both training and testing datasets are similar from table 1, where the distribution of adult mortality and alcohol are highly skewed to the right, and the distribution of life expectancy and BMI are highly skewed to the left. We can see more clearly through figure 2 in appendix. Figures 1 show that the distributions of categorical variable in both datasets are similar. Also, the introduction of each variables are displayed in table 4 in appendix. 
+
+We observe that the data are well clustered around the diagonal in the plot of responses versus fitted values, and all paired predictors appear to be linear in terms of the scatter plot of all paired predictors. This means that the full model in both training and testing dataset satisfy condition 1 and 2. There is no clear linear pattern in the residual plot, while the normal QQ plot has a clear deviation on both sides, denoting that the Normality assumption does not hold and other three assumptions holds. So we transformed life expectancy, alcohol, adult mortality and unemployment rate by Boxplot transformation. However, the transformed model has the VIF exceeds 5, which means it violates the multicollinearity assumption. The two conditions still hold, while the Normality assumption is still violated but the points are less deviated from the line. We then remove the highest VIF variable and find the new full model after transformation. The new transformation model still satisfy 2 conditions and all assumptions except Normality. Subsequently, we manually reduce the model by removing the variables such as BMI, unemployment rate and adult mortality that have large p-value. Also, condition 1 and 2 still holds for the manual reduce model, and the assumption of it satisfies and fits better on Normality compared to the full model as QQ-plot does not deviate too much. Thus, as we can see from table 3, we can compare only the reduce model in train and test data through adjusted r, AIC, BIC, leverage points, outlier and influential points to find a better model. They have neither the outlier and influential points. Additionally, we find that the the manual reduce model is better than the full model after transformation with passed anova test, larger adjusted r and smaller AIC and BIC values. The validation for test data of full model and manual reduce model shows similar identity where manual reduce model in test data has passed anova test, larger adjusted r and smaller AIC, BIC compared to full model after same transformation in test data. Both the full model and manual reduce model satisfy 2 conditions and three assumptions, and neither of them has outlier nor influential points. 
+
+```{r}
+#Full model in train data
+full <- lm(percentage.expenditure ~ GDP + Life.expectancy + Alcohol + BMI + Adult.Mortality + Schooling + unemployment_rate + number_pass_abortion_laws, data = train)
+```
+
+```{r} 
+#Condition 1: draw a scatterplot between yi and y_hat
+y_hat <- fitted(full)
+yi <- train$percentage.expenditure
+plot(yi,y_hat)
+abline(a = 0, b = 1)
+lines(lowess(yi ~ y_hat), lty=2)
+# Condition 2: draw scatterplots between predictors (can only be done for numerical predic
+pairs(~ GDP + Life.expectancy + Alcohol + BMI + Adult.Mortality + Schooling + unemployment_rate + number_pass_abortion_laws, data=train)
+```
+
+```{r}
+# Check four assumptions
+par(mfrow=c(2,2))
+plot(full,1)
+plot(full,2)
+plot(full,3)
+plot(full,4)
+```
+
+```{r}
+# Summary of Boxcox transformation
+summary(powerTransform(cbind(train$percentage.expenditure, 
+                             train$GDP, 
+                             train$Alcohol, 
+                             train$BMI, 
+                             train$Life.expectancy, 
+                             train$Adult.Mortality, 
+                             train$Schooling, 
+                             train$unemployment_rate)))
+```
+
+```{r}
+# mutate variables in train data after transformation
+train_trans <- train %>%
+  mutate(life_expectancy_trans = Life.expectancy^(3.68), 
+         Alcohol_trans = Alcohol^(0.5), 
+         Adult_Mortality_trans = Adult.Mortality^(2), 
+         unemployment_rate_trans = unemployment_rate^(0.5))
+```
+
+```{r}
+# transform full model
+full_trans <- lm(percentage.expenditure ~ GDP+ BMI + Schooling + number_pass_abortion_laws + life_expectancy_trans + Alcohol_trans + Adult_Mortality_trans + unemployment_rate_trans, data = train_trans)
+```
+
+```{r}
+# Check multilinearity
+vif(full_trans)
+```
+```{r} 
+#Condition 1: draw a scatterplot between yi and y_hat
+y_hat <- fitted(full_trans)
+yi <- train_trans$percentage.expenditure
+plot(yi,y_hat)
+abline(a = 0, b = 1)
+lines(lowess(yi ~ y_hat), lty=2)
+# Condition 2: draw scatterplots between predictors (can only be done for numerical predic
+pairs(~ GDP+ BMI + Schooling + number_pass_abortion_laws + life_expectancy_trans + Alcohol_trans + Adult_Mortality_trans + unemployment_rate_trans, data = train_trans)
+```
+
+```{r}
+# Check four assumptions
+par(mfrow=c(2,2))
+plot(full_trans,1)
+plot(full_trans,2)
+plot(full_trans,3)
+plot(full_trans,4)
+```
+
+```{r}
+# Transform full model
+full_trans2 <- lm(percentage.expenditure ~ GDP + BMI + Alcohol_trans + number_pass_abortion_laws+ unemployment_rate + Schooling + Adult_Mortality_trans, data = train_trans)
+# Check multilinearity
+vif(full_trans2)
+```
+
+```{r} 
+#Condition 1: draw a scatterplot between yi and y_hat
+y_hat <- fitted(full_trans2)
+yi <- train_trans$percentage.expenditure
+plot(yi,y_hat)
+abline(a = 0, b = 1)
+lines(lowess(yi ~ y_hat), lty=2)
+# Condition 2: draw scatterplots between predictors (can only be done for numerical predic
+pairs(~ GDP + BMI + Alcohol_trans + number_pass_abortion_laws+ unemployment_rate + Schooling + Adult_Mortality_trans, data = train_trans)
+```
+
+```{r}
+# Check four assumptions
+par(mfrow=c(2,2))
+plot(full_trans2,1)
+plot(full_trans2,2)
+plot(full_trans2,3)
+plot(full_trans2,4)
+```
+
+```{r}
+# Find pvalue of full model after transformation
+summary(full_trans2)
+```
+
+```{r}
+# Manual Selection
+reduce_manual <- lm(percentage.expenditure ~ GDP + Alcohol_trans + Schooling + number_pass_abortion_laws, data = train_trans)
+```
+
+```{r} 
+#Condition 1: draw a scatterplot between yi and y_hat
+y_hat <- fitted(reduce_manual)
+yi <- train_trans$percentage.expenditure
+plot(yi,y_hat)
+abline(a = 0, b = 1)
+lines(lowess(yi ~ y_hat), lty=2)
+# Condition 2: draw scatterplots between predictors (can only be done for numerical predic
+pairs(~ GDP + Alcohol_trans + Schooling + number_pass_abortion_laws, data = train_trans)
+```
+
+```{r}
+# Check four assumptions
+par(mfrow=c(2,2))
+plot(reduce_manual,1)
+plot(reduce_manual,2)
+plot(reduce_manual,3)
+plot(reduce_manual,4)
+```
+
+```{r}
+# Compare full model and manual reduce model
+anova(reduce_manual, full_trans2)
+
+summary(full_trans2)$adj.r.squared
+summary(reduce_manual)$adj.r.squared
+
+AIC(full_trans2)
+AIC(reduce_manual)
+
+BIC(full_trans2)
+BIC(reduce_manual)
+```
+
+```{r, fig.width=8, fig.height=4}
+# values to use in cutoffs
+n <- nrow(train)
+p <- length(coef(full))-1
+
+# define the cutoffs we will use
+Hcut <- 2*((p+1)/n)
+DFFITScut <- 2*sqrt((p+1)/n)
+DFBETAcut <- 2/sqrt(n)
+Dcut <- qf(0.5, p+1, n-p-1)
+
+# identify the leverage points
+h <- hatvalues(full)
+which(h>Hcut)
+
+# identify the outliers
+r <- rstandard(full)
+which(r < -4 | r > 4)
+
+# identify influential points by Cook's distance
+D <- cooks.distance(full)
+which(D > Dcut)
+
+```
+
+```{r, echo = FALSE, fig.width=8, fig.height=4}
+# values to use in cutoffs
+n <- nrow(train_trans)
+p <- length(coef(reduce_manual))-1
+
+# define the cutoffs we will use
+Hcut <- 2*((p+1)/n)
+DFFITScut <- 2*sqrt((p+1)/n)
+DFBETAcut <- 2/sqrt(n)
+Dcut <- qf(0.5, p+1, n-p-1)
+
+# identify the leverage points
+h <- hatvalues(reduce_manual)
+which(h>Hcut)
+
+# identify the outliers
+r <- rstandard(reduce_manual)
+which(r < -4 | r > 4)
+
+# identify influential points by Cook's distance
+D <- cooks.distance(reduce_manual)
+which(D > Dcut)
+
+```
+```{r}
+final_model <- reduce_manual
+```
+
+```{r}
+# Full model in test data
+full_test <- lm(percentage.expenditure ~ GDP + Life.expectancy + Alcohol + BMI + Adult.Mortality + Schooling + unemployment_rate + number_pass_abortion_laws, data = test)
+
+test_trans <- test %>%
+  mutate(life_expectancy_trans = Life.expectancy^(3.81), 
+         Alcohol_trans = Alcohol^(0.5), 
+         Adult_Mortality_trans = Adult.Mortality^(2), 
+         unemployment_rate_trans = unemployment_rate^(0.5))
+
+full_test <- lm(percentage.expenditure ~ GDP + BMI + Alcohol_trans + number_pass_abortion_laws+ unemployment_rate + Schooling + Adult_Mortality_trans, data = test_trans)
+```
+
+```{r} 
+# Condition 1: draw a scatterplot between yi and y_hat
+y_hat <- fitted(full_test)
+yi <- test$percentage.expenditure
+plot(yi,y_hat)
+abline(a = 0, b = 1)
+lines(lowess(yi ~ y_hat), lty=2)
+# Condition 2: draw scatterplots between predictors (can only be done for numerical predic
+pairs(~ GDP + Life.expectancy + Alcohol + BMI + Adult.Mortality + Schooling + unemployment_rate + number_pass_abortion_laws, data=test)
+```
+
+```{r}
+# Check four assumptions
+par(mfrow=c(2,2))
+plot(full_test,1)
+plot(full_test,2)
+plot(full_test,3)
+plot(full_test,4)
+```
+
+```{r}
+## manual reduce model
+reduce_manual_test <- lm(percentage.expenditure ~GDP + Alcohol_trans + Schooling + number_pass_abortion_laws, data=test_trans)
+```
+
+```{r} 
+#Condition 1: draw a scatterplot between yi and y_hat
+## manual reduce model for test data
+y_hat <- fitted(reduce_manual_test)
+yi <- test_trans$percentage.expenditure
+plot(yi,y_hat)
+abline(a = 0, b = 1)
+lines(lowess(yi ~ y_hat), lty=2)
+```
+
+```{r}
+# Condition 2: draw scatterplots between predictors
+## manual reduce model
+pairs(~GDP + Alcohol_trans + Schooling + number_pass_abortion_laws, data=test_trans)
+```
+
+```{r}
+# Compare full model and manual reduce model
+anova(reduce_manual_test, full_test)
+
+summary(reduce_manual_test)$adj.r.squared
+summary(full_test)$adj.r.squared
+
+AIC(reduce_manual_test)
+AIC(full_test)
+
+BIC(reduce_manual_test)
+BIC(full_test)
+```
+
+```{r, echo = FALSE, fig.width=8, fig.height=4}
+# values to use in cutoffs
+n <- nrow(test)
+p <- length(coef(full_test))-1
+
+# define the cutoffs we will use
+Hcut <- 2*((p+1)/n)
+DFFITScut <- 2*sqrt((p+1)/n)
+DFBETAcut <- 2/sqrt(n)
+Dcut <- qf(0.5, p+1, n-p-1)
+
+# identify the leverage points
+h <- hatvalues(full_test)
+which(h>Hcut)
+
+# identify the outliers
+r <- rstandard(full_test)
+which(r < -4 | r > 4)
+
+# identify influential points by Cook's distance
+D <- cooks.distance(full_test)
+which(D > Dcut)
+
+```
+
+```{r, echo = FALSE, fig.width=8, fig.height=4}
+# values to use in cutoffs
+n <- nrow(test_trans)
+p <- length(coef(reduce_manual_test))-1
+
+# define the cutoffs we will use
+Hcut <- 2*((p+1)/n)
+DFFITScut <- 2*sqrt((p+1)/n)
+DFBETAcut <- 2/sqrt(n)
+Dcut <- qf(0.5, p+1, n-p-1)
+
+# identify the leverage points
+h <- hatvalues(reduce_manual_test)
+which(h>Hcut)
+
+# identify the outliers
+r <- rstandard(reduce_manual_test)
+which(r < -4 | r > 4)
+
+# identify influential points by Cook's distance
+D <- cooks.distance(reduce_manual_test)
+which(D > Dcut)
+
+```
+|  Model  | Adjusted R square | AIC         | BIC         | Leverage points  | Outliers | Influential points | Annova test (with full model) |
+|------------------------|-------------------|-------------|-------------|--------------|----------|--------------|--------------------------|
+| Full model in train data | 0.9514447 | 86.70965 | 109.5993 | 2  39 113 13  31  49 |   None  |  None  |  |
+| reduce manual model in train data |0.9485602  | 84.43645 | 99.69622 | 2 39 13 31 |   None   |  None  | p-value = 0.33 |
+| Full model in test data | 0.9299746 | 68.139 | 83.33891 | 121 35 |   None  | None |  |
+| reduce manual model in test data | 0.9324359 | 64.29222 | 74.4255 | 27  93 121  9  29  35 |   None   | None | p-value = 0.6261 |
+
+\textbf{Table 2: Comparison of full model and fitted reduce model in train and test data}
+
+\newpage
+
+## Discussion
+
+As a result, we would choose manual reduce model for our final model. There is no new assumption violations in the final model. From the summary table of the final model in appendix, we also know that all predictors are significant. Thus the final model is supposed to be validated. The linear regression equation of the final model looks like this: 
+$$\hat{y} = -2.58199 + 0.91102X_{GDP} + 0.11045X_{Alcohol_{trans}} + 0.07444X_{Schooling} - 0.33909X_{number of passed abortion laws}$$
+We would expect 0.91102 increase in health expenditure for one unit increase in GDP, fixing all other variables. We would expect 0.11045 increase in health expenditure for one unit increase in alcohol level, fixing all other variables. We would expect 0.07444 increase in health expenditure for one unit increase in year of schooling, fixing all other variables. We would expect 0.33909 decrease in health expenditure for one more passed abortion law in the area. The findings explain how these four variables affect the spending on health, and have other possible predictors present. 
+
+There are limitations exist in the research. We acknowledge that there are extreme values such as leverage points in the data that affect the stability and accuracy of the experimental results, and the Normality assumption is barely satisfied. The conclusions drawn with and without extreme values may be different. In addition, the transformation of variables makes the model difficult to interpret, but without the transformation, the violation of assumptions becomes worse. Finally, it seems contrary to our common sense that more passage of the abortion laws in the summary would lead to a decline in health spending. 
+
+```{r, include = TRUE, fig.width = 8, fig.height = 6}
+# Check four assumptions
+par(mfrow=c(2,2))
+plot(reduce_manual,1)
+plot(reduce_manual,2)
+plot(reduce_manual,3)
+plot(reduce_manual,4)
+```
+\textbf{Figure 2: Check four assumptions for final model}
+
+
+All analysis for this report was programmed using `R version 4.0.2`. 
+
+\newpage
+
+## Bibliography(APA format)
+
+1. Xu, K., Evans, D. B., Kawabata, K., Zeramdini, R., Klavus, J., & Murray, C. J. L. (2003). Household catastrophic health expenditure: a multicountry analysis. The Lancet, 362(9378), 111–117. doi:10.1016/S0140-6736(03)13861-5
+
+2. Hitiris, T., & Posnett, J. (1992). The determinants and effects of health expenditure in developed countries. Journal of Health Economics, 11(2), 173–181. doi:10.1016/0167-6296(92)90033-W
+
+3. kaggle datasets download -d kumarajarshi/life-expectancy-who
+[https://www.kaggle.com/datasets/kumarajarshi/life-expectancy-who]
+
+4. © Copyright World Health Organization (WHO), 2021. All Rights Reserved.
+[https://www.who.int/data ]
+
+5. kaggle datasets download -d pantanjali/unemployment-dataset
+[https://www.kaggle.com/datasets/pantanjali/unemployment-dataset]
+
+6. Copyright © 2022 - United Nations Statistics Division Version
+[http://data.un.org/Data.aspx?q=abortion&d=GenderStat&f=inID%3a11]
+
+\newpage
+
+## Appendix
+
+```{r, include=TRUE}
+# Description of variables
+v_table <- data.frame(Variable = c("GDP", "Life.expectancy", "Adult.Mortality", "Alcohol", "BMI", "Schooling", "number_pass_abortion_laws", "unemployment_rate"), Variable_Type = c("numerical", "numerical", "numerical", "numerical", "numerical", "numerical", "categorical", "numerical"), Description = c("Gross domestic product", "life expectancy", "mortality of adult", "alcohol level", "Body mass index", "year of schooling", "number of passed abortion laws in the area", "unemployment rate"))
+v_table %>% gt()
+```
+
+\textbf{Table 3: Introduction to variables} 
+ 
+```{r, echo=FALSE, fig.height = 4, fig.width = 10, include=TRUE}
+par(mfrow=c(2,4))
+boxplot(train$percentage.expenditure,col="darkgreen",main="percentage health expenditure in train data")
+boxplot(train$GDP,col="darkgreen",main="GDP in train data")
+boxplot(train$Life.expectancy,col="darkgreen",main="life expectancy in train data")
+boxplot(train$Adult.Mortality,col="darkgreen",main="adult mortality in train data")
+boxplot(train$Alcohol,col="darkgreen",main="alcohol in train data")
+boxplot(train$BMI,col="darkgreen",main="BMI in train data")
+boxplot(train$Schooling,col="darkgreen",main="schooling in train data")
+boxplot(train$unemployment_rate,col="darkgreen",main="unemployment rate in train data")
+
+par(mfrow=c(2,4))
+boxplot(test$percentage.expenditure,col="darkgreen",main="percentage health expenditure in test data")
+boxplot(test$GDP,col="darkgreen",main="GDP in test data")
+boxplot(test$Life.expectancy,col="darkgreen",main="life expectancy in test data")
+boxplot(test$Adult.Mortality,col="darkgreen",main="adult mortality in test data")
+boxplot(test$Alcohol,col="darkgreen",main="alcohol in test data")
+boxplot(test$BMI,col="darkgreen",main="BMI in test data")
+boxplot(test$Schooling,col="darkgreen",main="schooling in test data")
+boxplot(test$unemployment_rate,col="darkgreen",main="unemployment rate in test data")
+```
+\textbf{Figure 3: Boxplot of numerical variables in training and testing datadset}
+
+```{r, include = TRUE, fig.width =3, fig.height = 4} 
+#Condition 1: draw a scatterplot between yi and y_hat
+y_hat <- fitted(final_model)
+yi <- train_trans$percentage.expenditure
+plot(yi,y_hat)
+abline(a = 0, b = 1)
+lines(lowess(yi ~ y_hat), lty=2)
+# Condition 2: draw scatterplots between predictors (can only be done for numerical predic
+pairs(~ GDP + Alcohol_trans + Schooling + number_pass_abortion_laws, data = train_trans)
+```
+
+\textbf{Figure 4: Check Condition 1 and 2 for final model}
+
+```{r, include=TRUE}
+summary(final_model)
+```
+\textbf{Summary of final model}

@@ -1,0 +1,58 @@
+---
+title: "sta302 proposal"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+```
+
+
+```{r, echo=TRUE}
+Life_expectance_data <- read.csv("Life Expectancy Data.csv")
+Life_expectance_data <- aggregate(cbind(percentage.expenditure, Life.expectancy, Adult.Mortality, Alcohol, BMI, GDP, Schooling)~Country,Life_expectance_data, mean)
+
+Life_expectance_data <- Life_expectance_data%>%
+  mutate(percentage.expenditure = log(percentage.expenditure), Adult.Mortality = log(Adult.Mortality), GDP = log(GDP))%>%
+  filter(percentage.expenditure <=5500, Adult.Mortality >=3.5)
+Life_expectance_data
+```
+
+```{r, echo=TRUE}
+unemployment_rate <- read.csv("unemployment analysis.csv")
+unemployment_rate <- unemployment_rate[, c(-2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -28, -29, -30, -31, -32, -33)]
+unemployment_rate <- unemployment_rate%>%
+  mutate(unemployment_rate = apply(unemployment_rate[, 2:17], 1, mean))%>%
+  rename("Country" = "Country.Name")%>%
+  filter(unemployment_rate <= 17)
+unemployment_rate
+unemployment_rate <- unemployment_rate[, c(-2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17)]
+unemployment_rate
+```
+```{r, echo=TRUE}
+number_pass_abortion_laws <- read.csv("abortion_laws.csv")
+number_pass_abortion_laws <- number_pass_abortion_laws[, c(-2, -3, -5)]
+number_pass_abortion_laws <- aggregate(Value~Country.or.Area, number_pass_abortion_laws, mean)
+number_pass_abortion_laws <- number_pass_abortion_laws%>%
+  rename(
+    "Country" = "Country.or.Area", 
+    "number_pass_abortion_laws" = "Value"
+  )
+number_pass_abortion_laws
+```
+
+```{r, echo=TRUE}
+data <- merge(Life_expectance_data, unemployment_rate, by= "Country")
+data <- merge(data, number_pass_abortion_laws, by = "Country")
+data
+```
+```{r}
+write.csv(data, file= "final_project_dataset.csv")
+```
+
+```{r}
+#model = lm(percentage.expenditure~Life.expectancy+Adult.Mortality+Alcohol+GDP+Schooling+unemployment_rate+number_pass_abortion_laws, data)
+#summary(model)
+```
