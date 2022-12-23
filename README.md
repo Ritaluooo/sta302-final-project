@@ -1,2 +1,2 @@
-# sta302-final-project
+# 2022 Fall sta302-final-project
 instructor: Dr. Katherine Daignault
